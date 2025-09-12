@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "projeto-cp4",
+    "slug": "projeto-cp4",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "projeto-cp4",
+    "notication": {
+      "icon": "./assets/notification-icon.png"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fiap-cp4",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notication"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "useNextNotificationApi": true,
+      "package": "com.fiap-cp4"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

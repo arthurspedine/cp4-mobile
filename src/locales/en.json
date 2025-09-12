@@ -1,0 +1,11 @@
+{
+    "welcome":"Welcome!!",
+    "logout":"Log out",
+    "deleteAccount":"Delete account",
+    "confirmDelete":"Are you sure you want to delete your account?",
+    "cancel":"Cancel",
+    "delete":"Delete",
+    "login":"Log-in",
+    "password":"Password",
+    "register":"Register"
+}
