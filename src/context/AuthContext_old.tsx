@@ -1,16 +1,10 @@
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useState,
-	useCallback,
-} from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onAuthStateChanged as firebaseOnAuthStateChanged, type User } from "firebase/auth";
 import {
-	onAuthStateChanged as firebaseOnAuthStateChanged,
-	type User,
-} from "firebase/auth";
-import { auth, signOut as firebaseSignOut } from "../services/firebaseConfig";
+	auth,
+	signOut as firebaseSignOut,
+} from "../services/firebaseConfig";
 
 interface AuthContextType {
 	user: User | null;
@@ -33,77 +27,64 @@ interface AuthProviderProps {
 	children: React.ReactNode;
 }
 
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+const USER_STORAGE_KEY = "@user";
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// Função para salvar no AsyncStorage
-	const saveUserToStorage = useCallback(async (user: User) => {
+	// Função para salvar usuário no AsyncStorage (como backup)
+	const saveUserToStorage = useCallback(async (firebaseUser: User) => {
 		try {
 			const userData = {
-				uid: user.uid,
-				email: user.email,
-				displayName: user.displayName,
+				uid: firebaseUser.uid,
+				email: firebaseUser.email,
+				displayName: firebaseUser.displayName,
+				photoURL: firebaseUser.photoURL,
+				emailVerified: firebaseUser.emailVerified,
 			};
-			await AsyncStorage.setItem("@user", JSON.stringify(userData));
+			await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
 			console.log("AuthContext: Usuário salvo no AsyncStorage");
 		} catch (error) {
 			console.error("Erro ao salvar usuário no AsyncStorage:", error);
 		}
 	}, []);
 
-	// Função para remover do AsyncStorage
+	// Função para remover usuário do AsyncStorage
 	const removeUserFromStorage = useCallback(async () => {
 		try {
-			await AsyncStorage.removeItem("@user");
+			await AsyncStorage.removeItem(USER_STORAGE_KEY);
 			console.log("AuthContext: Usuário removido do AsyncStorage");
 		} catch (error) {
 			console.error("Erro ao remover usuário do AsyncStorage:", error);
 		}
 	}, []);
 
-	// Função para carregar do AsyncStorage (apenas se não houver usuário logado)
-	// const loadUserFromStorage = useCallback(async () => {
-	// 	try {
-	// 		const storedUser = await AsyncStorage.getItem("@user");
-	// 		if (storedUser) {
-	// 			const userData = JSON.parse(storedUser);
-	// 			console.log("AuthContext: Usuário carregado do AsyncStorage:", userData.email);
-	// 			// Note: Não setamos o user aqui, deixamos o Firebase Auth gerenciar
-	// 		}
-	// 	} catch (error) {
-	// 		console.error("Erro ao carregar usuário do AsyncStorage:", error);
-	// 	}
-	// }, []);
-
 	useEffect(() => {
 		console.log("AuthContext: Configurando listener do Firebase Auth...");
 
 		// O Firebase Auth com persistência correta já gerencia a restauração do estado
-		const unsubscribe = firebaseOnAuthStateChanged(
-			auth,
-			async (firebaseUser: User | null) => {
-				console.log(
-					"AuthContext: onAuthStateChanged:",
-					firebaseUser
-						? `Usuário logado: ${firebaseUser.email}`
-						: "Usuário deslogado",
-				);
+		const unsubscribe = firebaseOnAuthStateChanged(auth, async (firebaseUser: User | null) => {
+			console.log(
+				"AuthContext: onAuthStateChanged:",
+				firebaseUser
+					? `Usuário logado: ${firebaseUser.email}`
+					: "Usuário deslogado",
+			);
 
-				if (firebaseUser) {
-					// Usuário logado
-					setUser(firebaseUser);
-					await saveUserToStorage(firebaseUser);
-				} else {
-					// Usuário deslogado
-					setUser(null);
-					await removeUserFromStorage();
-				}
+			if (firebaseUser) {
+				// Usuário logado
+				setUser(firebaseUser);
+				await saveUserToStorage(firebaseUser);
+			} else {
+				// Usuário deslogado
+				setUser(null);
+				await removeUserFromStorage();
+			}
 
-				// Sempre atualiza loading após a primeira verificação
-				setLoading(false);
-			},
-		);
+			// Sempre atualiza loading após a primeira verificação
+			setLoading(false);
+		});
 
 		return () => {
 			console.log("AuthContext: Removendo listener do Firebase Auth");
@@ -147,5 +128,3 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export default AuthProvider;

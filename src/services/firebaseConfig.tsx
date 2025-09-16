@@ -1,4 +1,14 @@
+// src/services/firebaseConfig.ts
 import { initializeApp } from "firebase/app";
+import {
+	getAuth,
+	signOut as firebaseSignOut,
+	signInWithEmailAndPassword,
+	createUserWithEmailAndPassword,
+	sendPasswordResetEmail,
+	updatePassword,
+	type User,
+} from "firebase/auth";
 import {
 	getFirestore,
 	collection,
@@ -7,22 +17,18 @@ import {
 	doc,
 	updateDoc,
 	deleteDoc,
+	query,
+	where,
+	orderBy,
+	onSnapshot,
+	Timestamp,
+	serverTimestamp,
+	type DocumentData,
+	type QueryDocumentSnapshot,
+	type Unsubscribe,
 } from "firebase/firestore";
-import {
-	getAuth,
-	signInWithCredential,
-	signInWithEmailAndPassword,
-	createUserWithEmailAndPassword,
-	signOut,
-	updatePassword,
-	sendPasswordResetEmail,
-	reauthenticateWithCredential,
-	EmailAuthProvider,
-	onAuthStateChanged,
-	type User,
-	type Auth,
-} from "firebase/auth";
 
+// Sua configuração do Firebase
 const firebaseConfig = {
 	apiKey: "AIzaSyApt2eNCjjJfBLXKZ6vISGULooL1utqtt4",
 	authDomain: "cp4-mobile-edf77.firebaseapp.com",
@@ -32,31 +38,45 @@ const firebaseConfig = {
 	appId: "1:181725761123:web:00a1ec0fb2916866fc7256",
 };
 
-// Initialize Firebase
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
-// Initialize Auth - usar getAuth para evitar warnings de persistência
-const auth: Auth = getAuth(app);
+// Inicializar Auth (React Native automaticamente persiste no AsyncStorage)
+export const auth = getAuth(app);
 
+// Inicializar Firestore
+export const db = getFirestore(app);
+
+// Exportar funções do Firestore e autenticação
 export {
-	auth,
-	db,
 	collection,
 	addDoc,
 	getDocs,
 	doc,
 	updateDoc,
 	deleteDoc,
-	signInWithCredential,
+	query,
+	where,
+	orderBy,
+	onSnapshot,
+	Timestamp,
+	serverTimestamp,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
-	signOut,
-	updatePassword,
 	sendPasswordResetEmail,
-	reauthenticateWithCredential,
-	EmailAuthProvider,
-	onAuthStateChanged,
+	updatePassword,
+	type DocumentData,
+	type QueryDocumentSnapshot,
+	type Unsubscribe,
+	type User,
 };
 
-export type { User };
+// Wrapper para signOut com logs
+export const signOut = async () => {
+	console.log("Firebase: Iniciando signOut...");
+	const result = await firebaseSignOut(auth);
+	console.log("Firebase: SignOut concluído");
+	return result;
+};
+
+export default app;
