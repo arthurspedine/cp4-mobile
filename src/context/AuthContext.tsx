@@ -37,49 +37,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// Função para salvar no AsyncStorage
+	// Função para salvar no AsyncStorage (backup adicional)
 	const saveUserToStorage = useCallback(async (user: User) => {
 		try {
 			const userData = {
 				uid: user.uid,
 				email: user.email,
 				displayName: user.displayName,
+				emailVerified: user.emailVerified,
 			};
-			await AsyncStorage.setItem("@user", JSON.stringify(userData));
-			console.log("AuthContext: Usuário salvo no AsyncStorage");
+			await AsyncStorage.setItem("@user_backup", JSON.stringify(userData));
+			console.log("AuthContext: Backup do usuário salvo no AsyncStorage");
 		} catch (error) {
-			console.error("Erro ao salvar usuário no AsyncStorage:", error);
+			console.error("Erro ao salvar backup do usuário:", error);
 		}
 	}, []);
 
-	// Função para remover do AsyncStorage
+	// Função para remover do AsyncStorage (backup adicional)
 	const removeUserFromStorage = useCallback(async () => {
 		try {
-			await AsyncStorage.removeItem("@user");
-			console.log("AuthContext: Usuário removido do AsyncStorage");
+			await AsyncStorage.removeItem("@user_backup");
+			console.log("AuthContext: Backup do usuário removido do AsyncStorage");
 		} catch (error) {
-			console.error("Erro ao remover usuário do AsyncStorage:", error);
+			console.error("Erro ao remover backup do usuário:", error);
 		}
 	}, []);
 
-	// Função para carregar do AsyncStorage (apenas se não houver usuário logado)
-	// const loadUserFromStorage = useCallback(async () => {
-	// 	try {
-	// 		const storedUser = await AsyncStorage.getItem("@user");
-	// 		if (storedUser) {
-	// 			const userData = JSON.parse(storedUser);
-	// 			console.log("AuthContext: Usuário carregado do AsyncStorage:", userData.email);
-	// 			// Note: Não setamos o user aqui, deixamos o Firebase Auth gerenciar
-	// 		}
-	// 	} catch (error) {
-	// 		console.error("Erro ao carregar usuário do AsyncStorage:", error);
-	// 	}
-	// }, []);
-
+	// Configuração do listener do Firebase Auth
 	useEffect(() => {
 		console.log("AuthContext: Configurando listener do Firebase Auth...");
 
-		// O Firebase Auth com persistência correta já gerencia a restauração do estado
 		const unsubscribe = firebaseOnAuthStateChanged(
 			auth,
 			async (firebaseUser: User | null) => {
@@ -91,7 +78,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				);
 
 				if (firebaseUser) {
-					// Usuário logado
+					// Usuário autenticado
 					setUser(firebaseUser);
 					await saveUserToStorage(firebaseUser);
 				} else {
@@ -100,7 +87,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 					await removeUserFromStorage();
 				}
 
-				// Sempre atualiza loading após a primeira verificação
+				// Para de carregar após a primeira verificação
+				setLoading(false);
+			},
+			(error) => {
+				console.error("Erro no onAuthStateChanged:", error);
 				setLoading(false);
 			},
 		);
@@ -113,39 +104,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 	const signOut = async () => {
 		try {
-			setLoading(true);
 			console.log("AuthContext: Iniciando logout...");
 
-			// Remove do AsyncStorage primeiro
-			await removeUserFromStorage();
-
-			// Depois faz logout do Firebase
+			// O Firebase Auth com persistência vai cuidar da remoção automática
 			await firebaseSignOut();
-			// O onAuthStateChanged vai atualizar o estado
+
 			console.log("AuthContext: Logout realizado com sucesso");
 		} catch (error) {
 			console.error("Erro ao fazer logout:", error);
 			throw error;
-		} finally {
-			setLoading(false);
 		}
 	};
+
+	// Função para atualizar usuário manualmente (raramente usada)
+	const setUserManually = useCallback(
+		async (newUser: User | null) => {
+			setUser(newUser);
+			if (newUser) {
+				await saveUserToStorage(newUser);
+			} else {
+				await removeUserFromStorage();
+			}
+		},
+		[saveUserToStorage, removeUserFromStorage],
+	);
 
 	const value: AuthContextType = {
 		user,
 		loading,
 		signOut,
-		setUser: (newUser: User | null) => {
-			setUser(newUser);
-			if (newUser) {
-				saveUserToStorage(newUser);
-			} else {
-				removeUserFromStorage();
-			}
-		},
+		setUser: setUserManually,
 	};
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-export default AuthProvider;

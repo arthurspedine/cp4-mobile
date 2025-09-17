@@ -107,5 +107,6 @@
     "settings": "Configurações",
     "notifications": "Notificações",
     "language": "Idioma",
-    "inspirationLoading": "Carregando inspiração..."
+    "inspirationLoading": "Carregando inspiração...",
+    "inspirationRefresh": "Toque para nova inspiração"
 }

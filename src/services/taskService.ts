@@ -42,14 +42,22 @@ const COLLECTION_NAME = "tasks";
 // Converte documento do Firestore para Task
 const firestoreToTask = (doc: QueryDocumentSnapshot<DocumentData>): Task => {
 	const data = doc.data();
+
+	// Validação básica dos dados necessários
+	if (!data.title || !data.userId) {
+		throw new Error(
+			`Documento inválido: ${doc.id} - dados obrigatórios ausentes`,
+		);
+	}
+
 	return {
 		id: doc.id,
 		title: data.title,
-		description: data.description,
-		completed: data.completed,
-		dueDate: data.dueDate ? data.dueDate.toDate() : null,
-		createdAt: data.createdAt.toDate(),
-		updatedAt: data.updatedAt.toDate(),
+		description: data.description || "",
+		completed: Boolean(data.completed),
+		dueDate: data.dueDate?.toDate?.() || null,
+		createdAt: data.createdAt?.toDate?.() || new Date(),
+		updatedAt: data.updatedAt?.toDate?.() || new Date(),
 		userId: data.userId,
 	};
 };
@@ -97,7 +105,12 @@ export const createTask = async (
 	try {
 		const tasksCollection = collection(db, COLLECTION_NAME);
 		const firestoreData = taskToFirestore(taskData, user.uid);
+
+		// Garante que todos os campos necessários estão presentes
 		firestoreData.completed = false; // Sempre começa como não concluída
+		firestoreData.userId = user.uid;
+		firestoreData.createdAt = serverTimestamp();
+		firestoreData.updatedAt = serverTimestamp();
 
 		const docRef = await addDoc(tasksCollection, firestoreData);
 		return docRef.id;
@@ -115,10 +128,22 @@ export const getUserTasks = async (user: User): Promise<Task[]> => {
 		const q = query(tasksCollection, where("userId", "==", user.uid));
 
 		const querySnapshot = await getDocs(q);
+
+		// Processa cada documento com tratamento individual de erro
+		const tasks: Task[] = [];
+
+		querySnapshot.docs.forEach((doc) => {
+			try {
+				const task = firestoreToTask(doc);
+				tasks.push(task);
+			} catch (docError) {
+				console.warn(`Erro ao processar documento ${doc.id}:`, docError);
+				// Continua processando outros documentos
+			}
+		});
+
 		// Ordenando no cliente
-		return querySnapshot.docs
-			.map((doc) => firestoreToTask(doc))
-			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+		return tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 	} catch (error) {
 		console.error("Erro ao buscar tarefas:", error);
 		throw new Error(handleFirebaseError(error));
@@ -175,10 +200,22 @@ export const subscribeToUserTasks = (
 			q,
 			(querySnapshot) => {
 				try {
+					// Processa cada documento com tratamento individual de erro
+					const tasks: Task[] = [];
+
+					querySnapshot.docs.forEach((doc) => {
+						try {
+							const task = firestoreToTask(doc);
+							tasks.push(task);
+						} catch (docError) {
+							console.warn(`Erro ao processar documento ${doc.id}:`, docError);
+							// Continua processando outros documentos
+						}
+					});
+
 					// Ordenando no cliente
-					const tasks = querySnapshot.docs
-						.map((doc) => firestoreToTask(doc))
-						.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+					tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
 					onTasksUpdate(tasks);
 				} catch (error) {
 					console.error("Erro ao processar atualização de tarefas:", error);

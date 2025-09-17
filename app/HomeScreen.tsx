@@ -221,7 +221,7 @@ export default function HomeScreen() {
 								<Text
 									style={[styles.quoteHint, { color: colors.textSecondary }]}
 								>
-									💡 Toque para nova inspiração
+									💡 {t("inspirationRefresh")}
 								</Text>
 							</View>
 						</TouchableOpacity>

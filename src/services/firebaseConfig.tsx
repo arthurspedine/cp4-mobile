@@ -1,13 +1,16 @@
-// src/services/firebaseConfig.ts
 import { initializeApp } from "firebase/app";
 import {
 	getAuth,
+	initializeAuth,
 	signOut as firebaseSignOut,
+	// @ts-ignore
+	getReactNativePersistence,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
 	sendPasswordResetEmail,
 	updatePassword,
 	type User,
+	type Auth,
 } from "firebase/auth";
 import {
 	getFirestore,
@@ -27,6 +30,7 @@ import {
 	type QueryDocumentSnapshot,
 	type Unsubscribe,
 } from "firebase/firestore";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
 
 // Sua configuração do Firebase
 const firebaseConfig = {
@@ -41,8 +45,25 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializar Auth (React Native automaticamente persiste no AsyncStorage)
-export const auth = getAuth(app);
+let auth: Auth;
+try {
+	auth = initializeAuth(app, {
+		persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+	});
+	console.log("Firebase Auth inicializado com persistência AsyncStorage");
+} catch (error: any) {
+	// Se já foi inicializado, usa getAuth
+	if (error.code === "auth/already-initialized") {
+		auth = getAuth(app);
+		console.log(
+			"Firebase Auth já estava inicializado, usando instância existente",
+		);
+	} else {
+		throw error;
+	}
+}
+
+export { auth };
 
 // Inicializar Firestore
 export const db = getFirestore(app);
@@ -73,10 +94,14 @@ export {
 
 // Wrapper para signOut com logs
 export const signOut = async () => {
-	console.log("Firebase: Iniciando signOut...");
-	const result = await firebaseSignOut(auth);
-	console.log("Firebase: SignOut concluído");
-	return result;
+	try {
+		console.log("Firebase: Iniciando signOut...");
+		await firebaseSignOut(auth);
+		console.log("Firebase: SignOut concluído");
+	} catch (error) {
+		console.error("Erro no signOut do Firebase:", error);
+		throw error;
+	}
 };
 
 export default app;

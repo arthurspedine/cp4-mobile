@@ -10,6 +10,7 @@ import {
 	ScrollView,
 	RefreshControl,
 	Platform,
+	ActivityIndicator,
 } from "react-native";
 import { useState, useCallback } from "react";
 import DateTimePicker, {
@@ -37,23 +38,46 @@ export default function TaskScreen() {
 	const [showDatePicker, setShowDatePicker] = useState(false);
 	const [showTimePicker, setShowTimePicker] = useState(false);
 	const [filterCompleted, setFilterCompleted] = useState(false);
+	const [titleFocused, setTitleFocused] = useState(false);
+	const [descriptionFocused, setDescriptionFocused] = useState(false);
+	const [saving, setSaving] = useState(false);
+
+	// Funções auxiliares para verificar datas
+	const isToday = (date: Date): boolean => {
+		const today = new Date();
+		return date.toDateString() === today.toDateString();
+	};
+
+	const isTomorrow = (date: Date): boolean => {
+		const tomorrow = new Date();
+		tomorrow.setDate(tomorrow.getDate() + 1);
+		return date.toDateString() === tomorrow.toDateString();
+	};
+
+	const isNextWeek = (date: Date): boolean => {
+		const nextWeek = new Date();
+		nextWeek.setDate(nextWeek.getDate() + 7);
+		const diffDays =
+			Math.abs(date.getTime() - nextWeek.getTime()) / (1000 * 60 * 60 * 24);
+		return diffDays < 1;
+	};
 
 	const styles = StyleSheet.create({
 		container: {
 			flex: 1,
-			backgroundColor: theme === "dark" ? "#000000" : "#f5f5f5",
+			backgroundColor: colors.background,
 		},
 		header: {
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
+			backgroundColor: colors.background,
 			padding: 20,
 			paddingTop: 40,
 			borderBottomWidth: 1,
-			borderBottomColor: theme === "dark" ? "#2C2C2E" : "#eee",
+			borderBottomColor: colors.border,
 		},
 		headerTitle: {
 			fontSize: 24,
 			fontWeight: "bold",
-			color: theme === "dark" ? "#FFFFFF" : "#000",
+			color: colors.text,
 			marginBottom: 8,
 		},
 		stats: {
@@ -67,43 +91,26 @@ export default function TaskScreen() {
 		statNumber: {
 			fontSize: 20,
 			fontWeight: "bold",
-			color: "#007AFF",
+			color: colors.primary,
 		},
 		statLabel: {
 			fontSize: 12,
-			color: theme === "dark" ? "#8E8E93" : "#666",
+			color: colors.textSecondary,
 			marginTop: 2,
 		},
 		filters: {
 			flexDirection: "row",
 			padding: 15,
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
+			backgroundColor: colors.background,
 			borderBottomWidth: 1,
-			borderBottomColor: theme === "dark" ? "#2C2C2E" : "#eee",
-		},
-		filterButton: {
-			paddingHorizontal: 15,
-			paddingVertical: 8,
-			marginRight: 10,
-			borderRadius: 20,
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#f0f0f0",
-		},
-		filterButtonActive: {
-			backgroundColor: "#007AFF",
-		},
-		filterText: {
-			fontSize: 14,
-			color: theme === "dark" ? "#FFFFFF" : "#333",
-		},
-		filterTextActive: {
-			color: "#fff",
+			borderBottomColor: colors.border,
 		},
 		content: {
 			flex: 1,
 			padding: 15,
 		},
 		taskCard: {
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
+			backgroundColor: colors.background,
 			borderRadius: 12,
 			padding: 15,
 			marginBottom: 10,
@@ -112,19 +119,21 @@ export default function TaskScreen() {
 				width: 0,
 				height: 2,
 			},
-			shadowOpacity: theme === "dark" ? 0.3 : 0.1,
+			shadowOpacity: 0.1,
 			shadowRadius: 4,
 			elevation: 3,
+			borderWidth: 1,
+			borderColor: colors.border,
 		},
 		taskTitle: {
 			fontSize: 16,
 			fontWeight: "600",
-			color: theme === "dark" ? "#FFFFFF" : "#000",
+			color: colors.text,
 			marginBottom: 8,
 		},
 		taskDescription: {
 			fontSize: 14,
-			color: theme === "dark" ? "#8E8E93" : "#666",
+			color: colors.textSecondary,
 			marginBottom: 10,
 		},
 		taskFooter: {
@@ -134,7 +143,7 @@ export default function TaskScreen() {
 		},
 		taskDate: {
 			fontSize: 12,
-			color: theme === "dark" ? "#8E8E93" : "#999",
+			color: colors.textSecondary,
 		},
 		taskActions: {
 			flexDirection: "row",
@@ -146,7 +155,7 @@ export default function TaskScreen() {
 			width: 56,
 			height: 56,
 			borderRadius: 28,
-			backgroundColor: "#007AFF",
+			backgroundColor: colors.primary,
 			justifyContent: "center",
 			alignItems: "center",
 			shadowColor: "#000",
@@ -161,90 +170,111 @@ export default function TaskScreen() {
 		modalOverlay: {
 			flex: 1,
 			backgroundColor: "rgba(0, 0, 0, 0.5)",
-			justifyContent: "center",
-			alignItems: "center",
+			justifyContent: "flex-end",
 		},
 		modalContent: {
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
-			borderRadius: 20,
-			margin: 20,
-			padding: 20,
-			width: "90%",
-			maxHeight: "80%",
+			backgroundColor: colors.background,
+			borderTopLeftRadius: 20,
+			borderTopRightRadius: 20,
+			maxHeight: "90%",
+			minHeight: "50%",
 		},
 		modalTitle: {
 			fontSize: 20,
 			fontWeight: "bold",
-			color: theme === "dark" ? "#FFFFFF" : "#000",
+			color: colors.text,
 			textAlign: "center",
-			marginBottom: 20,
 		},
 		input: {
 			borderWidth: 1,
-			borderColor: theme === "dark" ? "#3A3A3C" : "#ddd",
-			borderRadius: 10,
-			padding: 12,
-			marginBottom: 15,
+			borderColor: colors.border,
+			borderRadius: 12,
+			padding: 16,
+			marginBottom: 16,
 			fontSize: 16,
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#fff",
-			color: theme === "dark" ? "#FFFFFF" : "#000",
+			backgroundColor: colors.inputBackground,
+			color: colors.text,
+		},
+		inputFocused: {
+			borderColor: colors.primary,
+			borderWidth: 2,
 		},
 		textArea: {
-			height: 80,
+			height: 100,
 			textAlignVertical: "top",
 		},
 		dateTimeRow: {
-			flexDirection: "row",
-			justifyContent: "space-between",
-			marginBottom: 15,
+			gap: 12,
+			marginBottom: 16,
 		},
 		dateTimeButton: {
-			flex: 0.48,
-			paddingVertical: 12,
-			paddingHorizontal: 8,
-			borderWidth: 1,
-			borderColor: theme === "dark" ? "#3A3A3C" : "#ddd",
-			borderRadius: 10,
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#fff",
+			flexDirection: "row",
 			alignItems: "center",
+			paddingVertical: 16,
+			paddingHorizontal: 16,
+			borderWidth: 1,
+			borderColor: colors.border,
+			borderRadius: 12,
+			backgroundColor: colors.inputBackground,
+			minHeight: 56,
+		},
+		dateTimeButtonSelected: {
+			borderColor: colors.primary,
+			backgroundColor: colors.primary,
 		},
 		dateTimeButtonText: {
-			fontSize: 14,
-			color: theme === "dark" ? "#FFFFFF" : "#000",
+			fontSize: 16,
+			color: colors.text,
+			flex: 1,
+		},
+		dateTimeButtonIcon: {
+			fontSize: 20,
+			marginRight: 12,
 		},
 		shortcuts: {
 			flexDirection: "row",
-			justifyContent: "space-around",
-			marginBottom: 15,
+			gap: 8,
+			marginBottom: 16,
 		},
 		shortcutButton: {
 			paddingVertical: 8,
-			paddingHorizontal: 12,
-			borderRadius: 15,
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#f0f0f0",
+			paddingHorizontal: 16,
+			borderRadius: 20,
+			backgroundColor: colors.inputBackground,
+			borderWidth: 1,
+			borderColor: colors.border,
+		},
+		shortcutButtonActive: {
+			backgroundColor: colors.primary,
+			borderColor: colors.primary,
 		},
 		shortcutText: {
 			fontSize: 14,
 			fontWeight: "500",
-			color: theme === "dark" ? "#FFFFFF" : "#333",
+			color: colors.text,
+		},
+		shortcutTextActive: {
+			color: colors.buttonText,
 		},
 		pickerContainer: {
 			position: "absolute",
 			bottom: 0,
 			left: 0,
 			right: 0,
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#fff",
+			backgroundColor: colors.background,
 			borderTopLeftRadius: 20,
 			borderTopRightRadius: 20,
-			paddingBottom: 20,
+			paddingBottom: Platform.OS === "ios" ? 34 : 20, // Safe area para iOS
 			shadowColor: "#000",
 			shadowOffset: {
 				width: 0,
-				height: -4,
+				height: -8,
 			},
-			shadowOpacity: theme === "dark" ? 0.3 : 0.1,
-			shadowRadius: 8,
-			elevation: 10,
+			shadowOpacity: theme === "light" ? 0.15 : 0.3,
+			shadowRadius: 12,
+			elevation: 16,
+			borderTopWidth: 1,
+			borderTopColor: colors.border,
 		},
 		pickerHeader: {
 			flexDirection: "row",
@@ -253,52 +283,62 @@ export default function TaskScreen() {
 			paddingHorizontal: 20,
 			paddingVertical: 16,
 			borderBottomWidth: 1,
-			borderBottomColor: theme === "dark" ? "#3A3A3C" : "#E5E5EA",
+			borderBottomColor: colors.border,
+			backgroundColor: colors.background,
 		},
 		pickerCancel: {
 			fontSize: 16,
-			fontWeight: "500",
-			color: theme === "dark" ? "#FF453A" : "#FF3B30",
+			fontWeight: "600",
+			color: "#FF3B30",
 		},
 		pickerTitle: {
 			fontSize: 18,
 			fontWeight: "600",
-			color: theme === "dark" ? "#FFFFFF" : "#000000",
+			color: colors.text,
 		},
 		pickerDone: {
 			fontSize: 16,
 			fontWeight: "600",
-			color: "#007AFF",
+			color: colors.primary,
 		},
 		datePicker: {
-			height: 200,
+			height: 220,
+			backgroundColor: colors.background,
 		},
 		modalButtons: {
 			flexDirection: "row",
-			justifyContent: "space-between",
-			marginTop: 20,
+			gap: 12,
+			marginTop: 24,
 		},
 		button: {
-			flex: 0.48,
-			paddingVertical: 12,
-			borderRadius: 10,
+			flex: 1,
+			paddingVertical: 16,
+			borderRadius: 12,
 			alignItems: "center",
+			justifyContent: "center",
+			minHeight: 48,
 		},
 		cancelButton: {
-			backgroundColor: theme === "dark" ? "#2C2C2E" : "#f0f0f0",
+			backgroundColor: colors.inputBackground,
+			borderWidth: 1,
+			borderColor: colors.border,
 		},
 		saveButton: {
-			backgroundColor: "#007AFF",
+			backgroundColor: colors.primary,
+		},
+		saveButtonDisabled: {
+			backgroundColor: colors.border,
+			opacity: 0.5,
 		},
 		buttonText: {
 			fontSize: 16,
 			fontWeight: "600",
 		},
 		cancelButtonText: {
-			color: theme === "dark" ? "#FFFFFF" : "#333",
+			color: colors.text,
 		},
 		saveButtonText: {
-			color: "#fff",
+			color: colors.buttonText,
 		},
 		emptyContainer: {
 			flex: 1,
@@ -308,13 +348,13 @@ export default function TaskScreen() {
 		},
 		emptyText: {
 			fontSize: 18,
-			color: theme === "dark" ? "#8E8E93" : "#666",
+			color: colors.text,
 			textAlign: "center",
 			marginTop: 10,
 		},
 		emptySubtext: {
 			fontSize: 14,
-			color: theme === "dark" ? "#8E8E93" : "#999",
+			color: colors.textSecondary,
 			textAlign: "center",
 			marginTop: 5,
 		},
@@ -348,19 +388,32 @@ export default function TaskScreen() {
 		},
 		filterContainer: {
 			flexDirection: "row",
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
+			backgroundColor: colors.background,
 			marginHorizontal: 16,
-			marginTop: 16,
-			borderRadius: 8,
-			overflow: "hidden",
+			marginTop: 8,
+			marginBottom: 8,
+			borderRadius: 12,
+			padding: 4,
+			borderWidth: 1,
+			borderColor: colors.border,
 		},
-		filterButtonText: {
+		filterButton: {
+			flex: 1,
+			paddingVertical: 12,
+			paddingHorizontal: 16,
+			borderRadius: 8,
+			alignItems: "center",
+		},
+		filterButtonActive: {
+			backgroundColor: colors.primary,
+		},
+		filterText: {
 			fontSize: 14,
 			fontWeight: "600",
-			color: theme === "dark" ? "#FFFFFF" : "#666",
+			color: colors.text,
 		},
-		filterButtonTextActive: {
-			color: "#fff",
+		filterTextActive: {
+			color: colors.buttonText,
 		},
 		list: {
 			flex: 1,
@@ -368,12 +421,12 @@ export default function TaskScreen() {
 		},
 		fabText: {
 			fontSize: 24,
-			color: "#fff",
+			color: colors.buttonText,
 			fontWeight: "bold",
 		},
 		modalContainer: {
 			flex: 1,
-			backgroundColor: theme === "dark" ? "#1C1C1E" : "#fff",
+			backgroundColor: colors.background,
 		},
 		modalHeader: {
 			flexDirection: "row",
@@ -382,21 +435,39 @@ export default function TaskScreen() {
 			paddingHorizontal: 20,
 			paddingVertical: 16,
 			borderBottomWidth: 1,
-			borderBottomColor: theme === "dark" ? "#2C2C2E" : "#eee",
+			borderBottomColor: colors.border,
 			paddingTop: 50,
 		},
 		modalHeaderButton: {
 			fontSize: 16,
-			color: "#007AFF",
+			color: colors.primary,
 		},
 		inputContainer: {
-			marginBottom: 20,
+			marginBottom: 24,
 		},
 		inputLabel: {
 			fontSize: 16,
 			fontWeight: "600",
-			color: theme === "dark" ? "#FFFFFF" : "#333",
+			color: colors.text,
 			marginBottom: 8,
+		},
+		removeButton: {
+			flexDirection: "row",
+			alignItems: "center",
+			justifyContent: "center",
+			borderWidth: 1,
+			borderColor: colors.border,
+			borderRadius: 12,
+			paddingVertical: 12,
+			paddingHorizontal: 16,
+			marginBottom: 16,
+			backgroundColor: colors.inputBackground,
+		},
+		removeButtonText: {
+			fontSize: 14,
+			fontWeight: "500",
+			color: colors.textSecondary,
+			marginLeft: 8,
 		},
 		dateTimeIcon: {
 			fontSize: 20,
@@ -406,19 +477,6 @@ export default function TaskScreen() {
 			fontSize: 16,
 			fontWeight: "500",
 			flex: 1,
-		},
-		removeButton: {
-			borderWidth: 1,
-			borderColor: theme === "dark" ? "#3A3A3C" : "#ddd",
-			borderRadius: 8,
-			paddingVertical: 8,
-			paddingHorizontal: 12,
-			alignItems: "center",
-			marginBottom: 12,
-		},
-		removeButtonText: {
-			fontSize: 14,
-			fontWeight: "500",
 		},
 		dateShortcuts: {
 			flexDirection: "row",
@@ -480,6 +538,7 @@ export default function TaskScreen() {
 			return;
 		}
 
+		setSaving(true);
 		try {
 			if (editingTask) {
 				// Editando tarefa existente
@@ -501,6 +560,8 @@ export default function TaskScreen() {
 			handleCloseModal();
 		} catch {
 			Alert.alert("Erro", "Não foi possível salvar a tarefa");
+		} finally {
+			setSaving(false);
 		}
 	};
 
@@ -618,16 +679,14 @@ export default function TaskScreen() {
 				<TouchableOpacity
 					style={[
 						styles.filterButton,
-						{ borderColor: colors.text },
 						!filterCompleted && styles.filterButtonActive,
 					]}
 					onPress={() => setFilterCompleted(false)}
 				>
 					<Text
 						style={[
-							styles.filterButtonText,
-							{ color: colors.text },
-							!filterCompleted && styles.filterButtonTextActive,
+							styles.filterText,
+							!filterCompleted && styles.filterTextActive,
 						]}
 					>
 						{t("pendingTasks")}
@@ -636,16 +695,14 @@ export default function TaskScreen() {
 				<TouchableOpacity
 					style={[
 						styles.filterButton,
-						{ borderColor: colors.text },
 						filterCompleted && styles.filterButtonActive,
 					]}
 					onPress={() => setFilterCompleted(true)}
 				>
 					<Text
 						style={[
-							styles.filterButtonText,
-							{ color: colors.text },
-							filterCompleted && styles.filterButtonTextActive,
+							styles.filterText,
+							filterCompleted && styles.filterTextActive,
 						]}
 					>
 						{t("completedTasks")}
@@ -677,161 +734,121 @@ export default function TaskScreen() {
 				presentationStyle="pageSheet"
 				onRequestClose={handleCloseModal}
 			>
-				<View
-					style={[
-						styles.modalContainer,
-						{ backgroundColor: colors.background },
-					]}
-				>
-					<View
-						style={[
-							styles.modalHeader,
-							{
-								backgroundColor: colors.background,
-								borderBottomColor: colors.text,
-							},
-						]}
-					>
+				<View style={styles.modalContainer}>
+					{/* Header do Modal */}
+					<View style={styles.modalHeader}>
 						<TouchableOpacity onPress={handleCloseModal}>
-							<Text style={[styles.modalHeaderButton, { color: colors.text }]}>
-								{t("cancel")}
-							</Text>
+							<Text style={styles.modalHeaderButton}>{t("cancel")}</Text>
 						</TouchableOpacity>
-						<Text style={[styles.modalTitle, { color: colors.text }]}>
+						<Text style={styles.modalTitle}>
 							{editingTask ? t("editTask") : t("newTask")}
 						</Text>
-						<TouchableOpacity onPress={handleSaveTask}>
-							<Text style={[styles.modalHeaderButton, styles.saveButton]}>
-								{t("save")}
+						<TouchableOpacity
+							onPress={handleSaveTask}
+							disabled={!formData.title.trim() || saving}
+							style={{ flexDirection: "row", alignItems: "center" }}
+						>
+							{saving && (
+								<ActivityIndicator
+									size="small"
+									color={colors.primary}
+									style={{ marginRight: 8 }}
+								/>
+							)}
+							<Text
+								style={[
+									styles.modalHeaderButton,
+									(!formData.title.trim() || saving) && { opacity: 0.5 },
+								]}
+							>
+								{saving ? t("saving") || "Salvando..." : t("save")}
 							</Text>
 						</TouchableOpacity>
 					</View>
 
-					<ScrollView style={styles.modalContent}>
-						{/* Título */}
+					<ScrollView
+						style={{ flex: 1 }}
+						contentContainerStyle={{ padding: 20 }}
+						keyboardShouldPersistTaps="handled"
+					>
+						{/* Campo Título */}
 						<View style={styles.inputContainer}>
-							<Text style={[styles.inputLabel, { color: colors.text }]}>
-								{t("taskTitle")} *
-							</Text>
+							<Text style={styles.inputLabel}>{t("taskTitle")} *</Text>
 							<TextInput
-								style={[
-									styles.input,
-									{
-										backgroundColor: colors.background,
-										borderColor: colors.text,
-										color: colors.text,
-									},
-								]}
+								style={[styles.input, titleFocused && styles.inputFocused]}
 								value={formData.title}
 								onChangeText={(text) =>
 									setFormData((prev) => ({ ...prev, title: text }))
 								}
+								onFocus={() => setTitleFocused(true)}
+								onBlur={() => setTitleFocused(false)}
 								placeholder={t("taskTitlePlaceholder")}
-								placeholderTextColor={colors.text}
+								placeholderTextColor={colors.textSecondary}
 								autoFocus
+								returnKeyType="next"
 							/>
 						</View>
 
-						{/* Descrição */}
+						{/* Campo Descrição */}
 						<View style={styles.inputContainer}>
-							<Text style={[styles.inputLabel, { color: colors.text }]}>
-								{t("taskDescription")}
-							</Text>
+							<Text style={styles.inputLabel}>{t("taskDescription")}</Text>
 							<TextInput
 								style={[
 									styles.input,
 									styles.textArea,
-									{
-										backgroundColor: colors.background,
-										borderColor: colors.text,
-										color: colors.text,
-									},
+									descriptionFocused && styles.inputFocused,
 								]}
 								value={formData.description}
 								onChangeText={(text) =>
 									setFormData((prev) => ({ ...prev, description: text }))
 								}
+								onFocus={() => setDescriptionFocused(true)}
+								onBlur={() => setDescriptionFocused(false)}
 								placeholder={t("taskDescriptionPlaceholder")}
-								placeholderTextColor={colors.text}
+								placeholderTextColor={colors.textSecondary}
 								multiline
-								numberOfLines={3}
+								numberOfLines={4}
+								returnKeyType="done"
 							/>
 						</View>
 
-						{/* Data e hora */}
+						{/* Seção de Data e Hora */}
 						<View style={styles.inputContainer}>
-							<Text style={[styles.inputLabel, { color: colors.text }]}>
-								{t("dueDate")}
-							</Text>
+							<Text style={styles.inputLabel}>{t("dueDate")}</Text>
 
-							{/* Botões de Data e Hora lado a lado */}
-							<View style={styles.dateTimeRow}>
-								<TouchableOpacity
-									style={[
-										styles.dateTimeButton,
-										{
-											backgroundColor: colors.background,
-											borderColor: colors.text + "30",
-										},
-									]}
-									onPress={() => setShowDatePicker(true)}
-								>
-									<Text style={styles.dateTimeIcon}>📅</Text>
-									<Text style={[styles.dateTimeText, { color: colors.text }]}>
-										{formData.dueDate
-											? formData.dueDate.toLocaleDateString("pt-BR")
-											: t("selectDate")}
-									</Text>
-								</TouchableOpacity>
-
-								{formData.dueDate && (
-									<TouchableOpacity
-										style={[
-											styles.dateTimeButton,
-											{
-												backgroundColor: colors.background,
-												borderColor: colors.text + "30",
-											},
-										]}
-										onPress={() => setShowTimePicker(true)}
-									>
-										<Text style={styles.dateTimeIcon}>🕐</Text>
-										<Text style={[styles.dateTimeText, { color: colors.text }]}>
-											{formData.dueDate.toLocaleTimeString("pt-BR", {
-												hour: "2-digit",
-												minute: "2-digit",
-											})}
-										</Text>
-									</TouchableOpacity>
-								)}
-							</View>
-
-							{/* Botão para remover data */}
-							{formData.dueDate && (
-								<TouchableOpacity
-									style={[
-										styles.removeButton,
-										{ borderColor: colors.text + "20" },
-									]}
-									onPress={handleRemoveDate}
-								>
-									<Text
-										style={[
-											styles.removeButtonText,
-											{ color: colors.text + "70" },
-										]}
-									>
-										✕ {t("removeDate")}
-									</Text>
-								</TouchableOpacity>
-							)}
-
-							{/* Atalhos de data */}
-							<View style={styles.dateShortcuts}>
+							{/* Atalhos rápidos */}
+							<View style={styles.shortcuts}>
 								<TouchableOpacity
 									style={[
 										styles.shortcutButton,
-										{ borderColor: colors.text + "20" },
+										formData.dueDate &&
+											isToday(formData.dueDate) &&
+											styles.shortcutButtonActive,
+									]}
+									onPress={() => {
+										const today = new Date();
+										today.setHours(23, 59, 0, 0);
+										setFormData((prev) => ({ ...prev, dueDate: today }));
+									}}
+								>
+									<Text
+										style={[
+											styles.shortcutText,
+											formData.dueDate &&
+												isToday(formData.dueDate) &&
+												styles.shortcutTextActive,
+										]}
+									>
+										{t("today")}
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									style={[
+										styles.shortcutButton,
+										formData.dueDate &&
+											isTomorrow(formData.dueDate) &&
+											styles.shortcutButtonActive,
 									]}
 									onPress={() => {
 										const tomorrow = new Date();
@@ -840,7 +857,14 @@ export default function TaskScreen() {
 										setFormData((prev) => ({ ...prev, dueDate: tomorrow }));
 									}}
 								>
-									<Text style={[styles.shortcutText, { color: colors.text }]}>
+									<Text
+										style={[
+											styles.shortcutText,
+											formData.dueDate &&
+												isTomorrow(formData.dueDate) &&
+												styles.shortcutTextActive,
+										]}
+									>
 										{t("tomorrow")}
 									</Text>
 								</TouchableOpacity>
@@ -848,7 +872,9 @@ export default function TaskScreen() {
 								<TouchableOpacity
 									style={[
 										styles.shortcutButton,
-										{ borderColor: colors.text + "20" },
+										formData.dueDate &&
+											isNextWeek(formData.dueDate) &&
+											styles.shortcutButtonActive,
 									]}
 									onPress={() => {
 										const nextWeek = new Date();
@@ -857,92 +883,158 @@ export default function TaskScreen() {
 										setFormData((prev) => ({ ...prev, dueDate: nextWeek }));
 									}}
 								>
-									<Text style={[styles.shortcutText, { color: colors.text }]}>
+									<Text
+										style={[
+											styles.shortcutText,
+											formData.dueDate &&
+												isNextWeek(formData.dueDate) &&
+												styles.shortcutTextActive,
+										]}
+									>
 										{t("nextWeek")}
 									</Text>
 								</TouchableOpacity>
 							</View>
+
+							{/* Botões de Data e Hora */}
+							<View style={styles.dateTimeRow}>
+								<TouchableOpacity
+									style={[
+										styles.dateTimeButton,
+										formData.dueDate && styles.dateTimeButtonSelected,
+									]}
+									onPress={() => setShowDatePicker(true)}
+								>
+									<Text style={styles.dateTimeButtonIcon}>📅</Text>
+									<Text style={styles.dateTimeButtonText}>
+										{formData.dueDate
+											? formData.dueDate.toLocaleDateString("pt-BR")
+											: t("selectDate")}
+									</Text>
+								</TouchableOpacity>
+							</View>
+
+							{formData.dueDate && (
+								<>
+									<View style={styles.dateTimeRow}>
+										<TouchableOpacity
+											style={[
+												styles.dateTimeButton,
+												styles.dateTimeButtonSelected,
+											]}
+											onPress={() => setShowTimePicker(true)}
+										>
+											<Text style={styles.dateTimeButtonIcon}>🕐</Text>
+											<Text style={styles.dateTimeButtonText}>
+												{formData.dueDate.toLocaleTimeString("pt-BR", {
+													hour: "2-digit",
+													minute: "2-digit",
+												})}
+											</Text>
+										</TouchableOpacity>
+									</View>
+
+									{/* Botão para remover data */}
+									<TouchableOpacity
+										style={styles.removeButton}
+										onPress={handleRemoveDate}
+									>
+										<Text style={{ fontSize: 16 }}>✕</Text>
+										<Text style={styles.removeButtonText}>
+											{t("removeDate")}
+										</Text>
+									</TouchableOpacity>
+								</>
+							)}
 						</View>
 					</ScrollView>
 
-					{/* Date Picker dentro do modal */}
+					{/* Date Picker */}
 					{showDatePicker && (
-						<View
-							style={[
-								styles.pickerContainer,
-								{ backgroundColor: colors.background },
-							]}
-						>
-							<View
-								style={[
-									styles.pickerHeader,
-									{ borderBottomColor: colors.text + "20" },
-								]}
-							>
-								<TouchableOpacity onPress={() => setShowDatePicker(false)}>
-									<Text style={[styles.pickerCancel, { color: colors.text }]}>
-										{t("cancel")}
-									</Text>
-								</TouchableOpacity>
-								<Text style={[styles.pickerTitle, { color: colors.text }]}>
-									{t("selectDate")}
-								</Text>
-								<TouchableOpacity
-									onPress={() => {
-										setShowDatePicker(false);
-										if (Platform.OS === "ios") {
-											setShowTimePicker(true);
-										}
-									}}
-								>
-									<Text style={styles.pickerDone}>{t("done")}</Text>
-								</TouchableOpacity>
-							</View>
-							<DateTimePicker
-								value={formData.dueDate || new Date()}
-								mode="date"
-								display={Platform.OS === "ios" ? "spinner" : "default"}
-								onChange={handleDateChange}
-								minimumDate={new Date()}
-								style={styles.datePicker}
+						<>
+							{/* Backdrop */}
+							<TouchableOpacity
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									right: 0,
+									bottom: 0,
+									backgroundColor: "rgba(0, 0, 0, 0.3)",
+								}}
+								activeOpacity={1}
+								onPress={() => setShowDatePicker(false)}
 							/>
-						</View>
+							<View style={styles.pickerContainer}>
+								<View style={styles.pickerHeader}>
+									<TouchableOpacity onPress={() => setShowDatePicker(false)}>
+										<Text style={styles.pickerCancel}>{t("cancel")}</Text>
+									</TouchableOpacity>
+									<Text style={styles.pickerTitle}>{t("selectDate")}</Text>
+									<TouchableOpacity
+										onPress={() => {
+											setShowDatePicker(false);
+											if (Platform.OS === "ios") {
+												setShowTimePicker(true);
+											}
+										}}
+									>
+										<Text style={styles.pickerDone}>{t("done")}</Text>
+									</TouchableOpacity>
+								</View>
+								<DateTimePicker
+									value={formData.dueDate || new Date()}
+									mode="date"
+									display={Platform.OS === "ios" ? "spinner" : "default"}
+									onChange={handleDateChange}
+									minimumDate={new Date()}
+									style={styles.datePicker}
+									textColor={colors.text}
+									accentColor={colors.primary}
+									themeVariant={theme}
+								/>
+							</View>
+						</>
 					)}
 
-					{/* Time Picker dentro do modal */}
+					{/* Time Picker */}
 					{showTimePicker && (
-						<View
-							style={[
-								styles.pickerContainer,
-								{ backgroundColor: colors.background },
-							]}
-						>
-							<View
-								style={[
-									styles.pickerHeader,
-									{ borderBottomColor: colors.text + "20" },
-								]}
-							>
-								<TouchableOpacity onPress={() => setShowTimePicker(false)}>
-									<Text style={[styles.pickerCancel, { color: colors.text }]}>
-										{t("cancel")}
-									</Text>
-								</TouchableOpacity>
-								<Text style={[styles.pickerTitle, { color: colors.text }]}>
-									{t("selectTime")}
-								</Text>
-								<TouchableOpacity onPress={() => setShowTimePicker(false)}>
-									<Text style={styles.pickerDone}>{t("done")}</Text>
-								</TouchableOpacity>
-							</View>
-							<DateTimePicker
-								value={formData.dueDate || new Date()}
-								mode="time"
-								display={Platform.OS === "ios" ? "spinner" : "default"}
-								onChange={handleTimeChange}
-								style={styles.datePicker}
+						<>
+							{/* Backdrop */}
+							<TouchableOpacity
+								style={{
+									position: "absolute",
+									top: 0,
+									left: 0,
+									right: 0,
+									bottom: 0,
+									backgroundColor: "rgba(0, 0, 0, 0.3)",
+								}}
+								activeOpacity={1}
+								onPress={() => setShowTimePicker(false)}
 							/>
-						</View>
+							<View style={styles.pickerContainer}>
+								<View style={styles.pickerHeader}>
+									<TouchableOpacity onPress={() => setShowTimePicker(false)}>
+										<Text style={styles.pickerCancel}>{t("cancel")}</Text>
+									</TouchableOpacity>
+									<Text style={styles.pickerTitle}>{t("selectTime")}</Text>
+									<TouchableOpacity onPress={() => setShowTimePicker(false)}>
+										<Text style={styles.pickerDone}>{t("done")}</Text>
+									</TouchableOpacity>
+								</View>
+								<DateTimePicker
+									value={formData.dueDate || new Date()}
+									mode="time"
+									display={Platform.OS === "ios" ? "spinner" : "default"}
+									onChange={handleTimeChange}
+									style={styles.datePicker}
+									textColor={colors.text}
+									accentColor={colors.primary}
+									themeVariant={theme}
+								/>
+							</View>
+						</>
 					)}
 				</View>
 			</Modal>
