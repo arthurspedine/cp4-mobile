@@ -32,7 +32,7 @@
       },
       "edgeToEdgeEnabled": true,
       "useNextNotificationApi": true,
-      "package": "com.fiap-cp4"
+      "package": "com.pinguin_code_testing.projetocp4"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -43,7 +43,11 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "f82210c1-a445-44da-a43f-a444258d69f3"
       }
-    }
+    },
+    "owner": "pinguin_code_testing"
   }
 }
